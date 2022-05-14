@@ -107,6 +107,9 @@ pub fn legendre_polynomial(deg: usize) -> Vec<f64> {
     if deg % 2 != 1 {
         out.pop();
     }
+    for elem in out.iter_mut() {
+        *elem *= 1./2f64.powi(deg as i32);
+    }
     
     out
 }

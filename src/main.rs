@@ -37,6 +37,8 @@ struct AppState {
     integral_nodes: usize,
     approx_error: f64,
     polynomial: String,
+    given_approx_error: f64,
+    epsilon_flag: bool,
 }
 
 impl AppState {
@@ -52,6 +54,8 @@ impl AppState {
             integral_nodes: 2,
             approx_error: 0.,
             polynomial: String::new(),
+            given_approx_error: 0.1,
+            epsilon_flag: true,
         }
     }
 }
@@ -88,72 +92,153 @@ impl App for AppState {
                 // ##################################
                 //         APPROX. RANGE
                 // ##################################
-
-                ui.group(|ui| {
-                    ui.label("Approximation takes place on the interval [-1, 1]");
-                }); 
-                //ui.label("Mode");
-                //ui.radio_value(&mut self.mode, Mode::Nodes, "Nodes");
-                //ui.radio_value(&mut self.mode, Mode::AproxError, "Approx. Error");
-                ui.group(|ui| {
-                    ui.label("Polynomial Degree");
-                    ui.add(egui::Slider::new(&mut self.no_of_nodes, 2..=10));
-                    ui.label("Newton-Cotes Nodes");
-                    ui.add(egui::Slider::new(&mut self.integral_nodes, 2..=40));
-                });
-                if ui.button("Calculate").clicked() {
-                    if self.integral_nodes < self.no_of_nodes {
-                        self.integral_nodes = self.no_of_nodes;
-                    }
-                    // default some parameters
-                    self.chosen_function_values = Vec::new();
-                    self.approx_values = Vec::new();
-                    self.lambdas = Vec::new();
-
-                    let min = -1.;
-                    let max = 1.;
-                    // generating values of chosen function for the plot
-                    self.chosen_function_values = (0..10000)
-                    .map(|i| {
-                        let x = min + (i as f64 *
-                        ((max) - (min)) / 10000.);
-                        Value::new(x, function_value(x, self.function))
-                    })
-                    .collect();
-
-                    // generating values of approximated function for the plot
-                    self.lambdas = calculate_lambdas(self.function, self.no_of_nodes, self.integral_nodes);
-                    self.approx_values = (0..10000)
-                    .map(|i| {
-                        let x = min + (i as f64 *
-                        ((max) - (min)) / 10000.);
-                        Value::new(x, legendre_approx_value(&self.lambdas, x))
-                    })
-                    .collect();
-
-                    let mut sum = 0.;
-                    let step = (max - min) / self.no_of_nodes as f64;
-                    for i in 0..self.no_of_nodes {
-                        sum += (function_value(min + i as f64 * step, self.function) - legendre_approx_value(&self.lambdas, min + i as f64 * step)).powi(2);
-                    }
-                    self.approx_error = sum.sqrt();
-                    
-                    let mut polynomial: String = String::from(" ");
-                    let poly = get_coefficients(&self.lambdas);
-                    for (i, j) in poly.iter().enumerate() {
-                        if i == self.no_of_nodes  {
-                            polynomial += format!("{:.3}x^{}" , j, self.no_of_nodes - i).as_str();
-                        } else {
-                            polynomial += format!("{:.3}x^{} + " , j, self.no_of_nodes - i).as_str();
-                        }
-                        
-                    }
-                    self.polynomial = polynomial;
+                if ui.button("Nodes").clicked() {
+                    self.mode = Mode::Nodes;
                 }
-                let error = format!("Approx. Error: {:.6}", self.approx_error);
-                ui.group(|ui| {
-                    ui.label(error);
-                });
+                if ui.button("Approx. Error").clicked() {
+                    self.mode = Mode::AproxError;
+                }
+                match self.mode {
+                    Mode::Nodes => {
+                        ui.group(|ui| {
+                            ui.group(|ui| {
+                                ui.label("Approximation takes place on the interval [-1, 1]");
+                            }); 
+                            //ui.label("Mode");
+                            //ui.radio_value(&mut self.mode, Mode::Nodes, "Nodes");
+                            //ui.radio_value(&mut self.mode, Mode::AproxError, "Approx. Error");
+                            ui.group(|ui| {
+                                ui.label("Polynomial Degree");
+                                ui.add(egui::Slider::new(&mut self.no_of_nodes, 2..=10));
+                                ui.label("Newton-Cotes Nodes");
+                                ui.add(egui::Slider::new(&mut self.integral_nodes, 2..=40));
+                            });
+                            if ui.button("Calculate").clicked() {
+                                if self.integral_nodes < self.no_of_nodes {
+                                    self.integral_nodes = self.no_of_nodes;
+                                }
+                                // default some parameters
+                                self.chosen_function_values = Vec::new();
+                                self.approx_values = Vec::new();
+                                self.lambdas = Vec::new();
+            
+                                let min = -1.;
+                                let max = 1.;
+                                // generating values of chosen function for the plot
+                                self.chosen_function_values = (0..10000)
+                                .map(|i| {
+                                    let x = min + (i as f64 *
+                                    ((max) - (min)) / 10000.);
+                                    Value::new(x, function_value(x, self.function))
+                                })
+                                .collect();
+            
+                                // generating values of approximated function for the plot
+                                self.lambdas = calculate_lambdas(self.function, self.no_of_nodes, self.integral_nodes);
+                                self.approx_values = (0..10000)
+                                .map(|i| {
+                                    let x = min + (i as f64 *
+                                    ((max) - (min)) / 10000.);
+                                    Value::new(x, legendre_approx_value(&self.lambdas, x))
+                                })
+                                .collect();
+            
+                                let mut sum = 0.;
+                                let step = (max - min) / self.no_of_nodes as f64;
+                                for i in 0..self.no_of_nodes {
+                                    sum += (function_value(min + i as f64 * step, self.function) - legendre_approx_value(&self.lambdas, min + i as f64 * step)).powi(2);
+                                }
+                                self.approx_error = sum.sqrt();
+                                
+                                let mut polynomial: String = String::from(" ");
+                                let poly = get_coefficients(&self.lambdas);
+                                for (i, j) in poly.iter().enumerate() {
+                                    if i == self.no_of_nodes  {
+                                        polynomial += format!("{:.3}x^{}" , j, self.no_of_nodes - i).as_str();
+                                    } else {
+                                        polynomial += format!("{:.3}x^{} + " , j, self.no_of_nodes - i).as_str();
+                                    }
+                                    
+                                }
+                                self.polynomial = polynomial;
+                            }
+                            let error = format!("Approx. Error: {:.6}", self.approx_error);
+                            ui.group(|ui| {
+                                ui.label(error);
+                            });
+                        });
+                    },
+                    Mode::AproxError => {
+                        ui.group(|ui| {
+                            self.integral_nodes = 40;
+                            ui.group(|ui| {
+                                ui.label("Approximation takes place on the interval [-1, 1]");
+                            }); 
+                            ui.group(|ui| {
+                                ui.label("Approx. Epsilon: ");
+                                ui.add(egui::Slider::new(&mut self.given_approx_error, 1e-15..=0.1).logarithmic(true));
+                            });
+                            if ui.button("Calculate").clicked() {
+                                // default some parameters
+                                self.chosen_function_values = Vec::new();
+                                self.approx_values = Vec::new();
+                                self.lambdas = Vec::new();
+            
+                                let (best_deg, flag) = best_approximation(self.function, self.given_approx_error);
+                                self.no_of_nodes = best_deg;
+                                self.epsilon_flag = flag;
+
+                                let min = -1.;
+                                let max = 1.;
+                                // generating values of chosen function for the plot
+                                self.chosen_function_values = (0..10000)
+                                .map(|i| {
+                                    let x = min + (i as f64 *
+                                    ((max) - (min)) / 10000.);
+                                    Value::new(x, function_value(x, self.function))
+                                })
+                                .collect();
+            
+                                // generating values of approximated function for the plot
+                                self.lambdas = calculate_lambdas(self.function, self.no_of_nodes, self.integral_nodes);
+                                self.approx_values = (0..10000)
+                                .map(|i| {
+                                    let x = min + (i as f64 *
+                                    ((max) - (min)) / 10000.);
+                                    Value::new(x, legendre_approx_value(&self.lambdas, x))
+                                })
+                                .collect();
+            
+                                let mut sum = 0.;
+                                let step = (max - min) / self.no_of_nodes as f64;
+                                for i in 0..self.no_of_nodes {
+                                    sum += (function_value(min + i as f64 * step, self.function) - legendre_approx_value(&self.lambdas, min + i as f64 * step)).powi(2);
+                                }
+                                self.approx_error = sum.sqrt();
+                                
+                                let mut polynomial: String = String::from(" ");
+                                let poly = get_coefficients(&self.lambdas);
+                                for (i, j) in poly.iter().enumerate() {
+                                    if i == self.no_of_nodes  {
+                                        polynomial += format!("{:.3}x^{}" , j, self.no_of_nodes - i).as_str();
+                                    } else {
+                                        polynomial += format!("{:.3}x^{} + " , j, self.no_of_nodes - i).as_str();
+                                    }
+                                    
+                                }
+                                self.polynomial = polynomial;
+                            }
+                            let error = format!("Approx. Error: {:.6}", self.approx_error);
+                            ui.group(|ui| {
+                                if !self.epsilon_flag {
+                                    ui.label("The search criteria were not met. Displaying the best approximation found.");
+                                }
+                                ui.label(error);
+                            });
+                        });
+                    },
+                }
+                
                 
             });
         });
